@@ -14,9 +14,8 @@
     </div>
 
     {% include footer.html %}
-    {% include highlight.html %}
+
   </body>
 
 </html>
-
 
