@@ -1,0 +1,133 @@
+---
+layout: post
+title: "Internet Checksum趣谈"
+data: 2016-03-03 20:11:29
+cataagories: TCP/IP
+excerpt: 天才的科学家发现了下面这个巧妙的公式 </br>-((-A)+(-B)+(-0))+(-A)+(-B)=0</br>于是，每天要运行无数次的检验和算法便诞生了
+---
+
+
+
+#为什么要使用取反求和的算法
+1. 字节顺序无关性
+
+反码求和最大的优点就是其字节顺序无关性，即检验和的计算并不依赖于系统是大端还是小端。  
+如果在大端系统中的检验和是这样的：  
+    [A,B] +' [C,D] +' [E,F] +' ...... +' [Y,Z] = [XX,YY]  
+那么相应的，在小端系统中计算的检验和是这样的:  
+    [B,A] +' [D,C] +' [F,E] +' ...... +' [Z,Y] = [YY,XX]  
+结果中的XX，YY是相同的，因为如果将16位的数字看做高8位和低8位分别做加法，会发现在不管是大端还是小端系统所产生的进位是相同的（15位->0位，7位->8位）。从大尾端产生的数据在小尾端被接受时，并不需要做额外的处理，直接进行取反就和即可验证正确性。  
+2. 可并行化计算
+
+反码求和可以以16bit数据为基本单元，但在那些字段长度为16bit整数倍的机器上，可以通过增大基本计算单元来提高算法的效率。例如,可以这么计算检验和： [A,B,C,D]  +' [E,F,G,H] ，再将[U,V,W,X]拆开计算[U,V] +' [W,X]即可得到最终结果。
+
+3. 交换律与结合律
+
+只要奇数和偶数被相应的安置(奇数在高位、偶数在低位，或者反过来)，我们就可以按照任意的顺序进行求和，同时也可以任意将其结合起来，例如：[A,B] +' [C,D] +' [E,F] = ([A,B] +' [C,0]) +' ([0,D] +' [E,F]).这特性将极大的方便我们处理计算机的内存对齐问题。
+
+
+#算法实现
+
+这一节展示了检验和算法实现的几个例子。
+
+##RFC 1071中给出的C语言的实现
+
+    unsigned short checksum(const char* addr, int count) {
+       /* Compute Internet Checksum for "count" bytes
+        *         beginning at location "addr".
+        */
+        register long sum = 0;
+
+        while( count > 1 )  {
+                   /*  This is the inner loop */
+                   sum += * (unsigned short) addr++;
+                   count -= 2;
+        }
+
+           /*  Add left-over byte, if any */
+        if( count > 0 )
+           sum += * (unsigned char *) addr;
+
+           /*  Fold 32-bit sum to 16 bits */
+        while (sum>>16)
+           sum = (sum & 0xffff) + (sum >> 16);
+
+       checksum = ~sum;
+    }
+
+这个是检验和算法的基本实现。
+
+上述检验和算法的基本C语言实现是基于所有被检验字节存储在一个连续的缓存中，但是可以使用mbuf来存储数据以便于更加高效。 而且在大多数体系中，对16bit字的不对齐访问是无效的，甚至会出线严重错误，所以在使用基于mbuf的方式存储数据时还要处理字节对齐问题。
+对于代码中的主循环，还可以采用循环展开的方法通过减少循环耗费来提高效率，下面代码中的三个while循环在每次迭代中分别在和中加上16个字，4个字和1个字。这样写在某些体系结构中可以大大提高效率，但是代码的复杂性和长度都会相应的增大。
+
+    #define ADDCARRY(x) (x > 65535 ? x -= 65535 : x)
+    #define REDUCE {l_util.l = sum; sum = l_util.s[0] + l_util.s[1] ; ADDCARRY(sum)}
+
+    int
+    in_cksum(m, len)
+    struct mbuf *m
+    int    len;
+    {
+        u_short *w;
+        int sum = 0;
+        int mlen = 0;
+        int byte_swapped = 0;
+
+        union{
+            char c[2];
+            u_short s;
+        }
+    }
+
+
+##网上流传的另一种C语言的实现
+
+    unsigned short checksum(unsigned short *buf,int nword) {
+        unsigned long sum;
+
+        for(sum=0;nword>0;nword--)
+             sum += *buf++;
+        sum = (sum>>16) + (sum&0xffff);
+        sum += (sum>>16);
+
+        return ~sum;
+    }
+
+该算法看似比RFC中的算法实现更加简单，但是该算法实现在应用场景上交RFC中的算法实现有一定的约束：
+1. 该算法要求被计算的buffer长度为偶数字节，此种情况适用于计算IP首部检验和、ICMP、IGMP校验和的计算
+2. 该算法实现的倒数第二行，<code>sum += (sum>>16)</code>，这种实现方法要求所处理的内容不能够太长，即sum不能超过2^32。在实际计算中，无论是IP、ICMP、IGMP和TCP、UDP的长度都不会超过2^32。
+
+
+##使用汇编语言实现可以进一步提高效率
+
+RFC1071中给出了若干种不同CPU上的汇编语言的算法实现，思路与上面的C语言算法大致相同，在此就不再赘述了，有兴趣的同学可以自行查阅。
+
+
+#检验和的增量计算算法
+
+当只有其中固定的字发生变化时，我们可以不用重新对所有被检验字节进行重新计算，通过增量计算的方法可以花费很小的代价来得到新的检验和。TTL的计算是最典型的例子，在数据报经过路由器时，需要修改IP数据报头中的TTL字段，从而导致所有包含TTL字段的检验和都要重新进行计算。使用增量式的计算方法可以大大提高计算此类检验和的效率。
+
+增量式计算检验和的原理如下公式所示：
+
+C' = C + (-m) + m' = C + (m' - m)        其中C'为新的检验和，C是旧的检验和， m是旧的字段，m'是新的字段
+
+RFC1141中指出上式由于计算的是检验和C而不是它的1's complement，再加上公式中的一元否定运算符(-)并没有详细的给出，所以对于编程实现来说并不友好。RFC1141中给出了一个在基于2's complement的机器上的实用的公式
+
+~C' = ~(C + (-m) + m') = ~C + (m - m') = ~C + m + ~m'
+
+下面是计算更新TTL后的检验和的一个较为普适的C语言的算法实现
+
+
+    UpdateTTL(iph,n)
+    strUCt ip_hdr *ipptr;
+    unsigned char n;
+    {
+        unsigned long sum;
+        unsigned short old;
+        old = ntohs(*(unsigned short *)&ipptr->ttl);
+        ipptr->ttl -= n;
+        sum = old + (~ntohs(*(unsigned short *)&ipptr->ttl) & 0xffff);
+        sum += ntohs(ipptr->Checksum);
+        sum = (sum & 0xffff) + (sum>>16);
+        ipptr->Checksum = htons(sum + (sum>>16));
+    }

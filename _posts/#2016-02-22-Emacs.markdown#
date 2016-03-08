@@ -1,0 +1,15 @@
+---
+layout: post
+title: "我是如何学习emacs的"
+data: 2016-02-22 21:53:12
+categories: tool
+excerpt:
+published: false
+---
+
+ALT+x然后输入help-with-toturial,然后仔细阅读完成整个toturial，并完成其中的练习。
+
+
+
+#目前还不明白的问题
+1. 如何解决快捷键冲突的问题，ubutun+text terminal下CTRL+SPC、ALT+v都跟系统快捷键冲突。

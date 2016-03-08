@@ -1,0 +1,10 @@
+---
+layout: post
+title: "我是如何学习emacs的"
+data: 2016-02-22 21:53:12
+categories: tool
+excerpt:
+published: false
+---
+
+ALT+x然后输入help-with-toturial,然后仔细阅读完成整个toturial，并完成其中的练习。
