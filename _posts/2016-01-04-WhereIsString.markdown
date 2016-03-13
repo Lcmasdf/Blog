@@ -25,7 +25,7 @@ published: true
 　　不是C++的问题，也不是编译器的锅，那就是我的问题喽。*string到底藏在哪里呢？*当时手里还有其他的问题，而且周围小伙伴也表示：咦，这个东西好神奇哦，所以就不了了之了。    
 　　在一个月黑风高的夜晚，我突然意识到string应该就在iostream里面啊，我只包含了这一个头文件，福尔摩斯那句话是怎么说来着：`When you have eliminated the impossible, whatever remains, however improbable, must be the truth.`。定义string的头文件一定就藏在ios特然吗中。果然，没几个Go to Definition就找到xstring，原来iostream里面内容如此丰富。╮(╯▽╰)╭，既然这样，那就来仔细看看iostream中到底包含了什么东西吧。
 
-##VC++中的iostream
+## VC++中的iostream
 ![iostream_vc++](http://7xprz9.com1.z0.glb.clouddn.com/Iostream.jpeg)
 
 * iostream  : 定义了cin、cout、cerr、clog以及wcin、wcout、wcerr、wclog    
@@ -40,7 +40,7 @@ published: true
 * cstdlib   : 定义了一些通用的函数，主要包括动态内存管理、随机数生成、整数算法、排序和转换。
 * streambuf : 定义了所有用来处理narrow characters的stream buffer类的基类，xstring就藏在streambuf中
 
-##G++中的iostream
+## G++中的iostream
 ![iostream_g++](http://7xprz9.com1.z0.glb.clouddn.com/Iostream_g%2B%2B.jpeg)
 
 * iostream  : 定义了cin、cout、cerr、clog以及wcin、wcout、外侧让人、wclog，与VC++相同   
