@@ -3,7 +3,7 @@ layout: post
 title: "string到底是在哪里定义的？"
 date: 2016-01-04 22:23:12
 categories: C++
-excerpt: TODO
+excerpt: 我们在使用string时，总会下意识的包含iostream和string两个头文件。但是你知道么。很多时候这些其实string并不是必要的！！
 published: true
 ---
 
@@ -58,3 +58,6 @@ published: true
 * ostream_insert.h : 定义了__ostream_write、__ostream_fill、__ostream_insert.h。头文件中注释显示这是一个Helpers for ostream inserters   
 * cxxabi_forced.h : cancellation的子集。
 
+## 总结
+
+弄清这个问题最大的感触并不是了解了iostream内部的构造，了解了string中其实只包含了某些运算符和函数的重载。最大的感触是如果我们能够对身边的事情有更敏锐的观察，不要忽视某些细小的问题，总是会有一定的收获的。
