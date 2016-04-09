@@ -127,6 +127,8 @@ blockquote {
  */
 pre,
 code {
+    overflow-x: auto;
+
     font-size: 15px;
     color: #00CD00;
     border: 1px solid $grey-color-light;
@@ -140,7 +142,7 @@ code {
 
 pre {
     //padding: 8px 12px;
-    overflow-x: auto;
+    //overflow-x: auto;
 
     > code {
         border: 0;
