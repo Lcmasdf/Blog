@@ -1,0 +1,14 @@
+---
+layout: post
+title: "markdown Test"
+data: 2016-04-23 10:30:30
+categories: language
+---
+
+
+# Test about hidden attribute and free attribute
+
+
+
+this is a paragraph! <span selfattr="show">this a show for somebody</span>  <span hidden="hidden">this for pronounce</span>
+this is not a good idea
