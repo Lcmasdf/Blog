@@ -1,7 +1,7 @@
 ﻿---
 layout: post
 title: "永怀希望的find_package"
-date: 2016-01-04 22:23:12
+date: 2018-11-04 23:00:00
 categories: CMAKE
 excerpt: 瞧一瞧cmake是如何搞定复杂的包含关系的~~
 published: true
