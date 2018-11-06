@@ -1,4 +1,4 @@
-﻿---
+---
 layout: post
 title: "永怀希望的find_package"
 date: 2018-11-04 23:00:00
@@ -7,8 +7,9 @@ excerpt: 瞧一瞧cmake是如何搞定复杂的包含关系的~~
 published: true
 ---
 
-
 # CMAKE之find_package
+
+如果编译软件使用了外部库，且事先并不知道头文件和链接库的位置，需要在编译命令增加查找库的相关指令，cmake使用find_package()来解决这个问题。
 ```cmake
 find_package(OpenCV QUIET)
 ```
@@ -16,16 +17,16 @@ find_package(OpenCV QUIET)
 
 find_package本身不提供任何搜索库的简便方法，所有的搜索以及变量赋值的过程均需要cmake代码完成。
 
-使用find_package需要库的提供者，安装者均遵守 find_package的使用方法
+例如 : opencv的安装包中包含OpenCVXXX.cmake文件， make install后会放在/lib/x86_64-linux-gnu/share/OpenCV下。
 
 ### find_package采用两种模式搜索库
 + Module模式
 搜索CMAKE_MODULE_PATH指定路径之下的FindXXX.cmake文件，执行该文件从而找到XXX库。查找具体库并给XXX_INCLUDE_DIRS和XXX_LIBRARIES赋值的工作由FindXXX.cmake模块完成。
-	+ CMAKE_MODULE_PATH 默认为空，此时cmake会去/usr/share/cmake-xx/Module下去寻找（cmake内置的find脚本）。
+	+ CMAKE_MODULE_PATH会在cmake install时被创建，默认为/usr/share/cmake-xx/Module。
 + Config模式
-搜索XXX_DIR制定路径下的XXXConfig.cmake文件，执行从而找到XXX库。查找具体库并给XXX_INCLUDE_DIRS和XXX_LIBRARIES赋值的工作由XXXConfig.make完成。
+Config模式会搜索XXXConfig.cmake文件，执行从而找到XXX库。查找具体库并给XXX_INCLUDE_DIRS和XXX_LIBRARIES赋值的工作由XXXConfig.make完成。
 
-无论使用Module还是使用Config模式，这一步都是要找到xxxx.cmake，后续的find的工作会由xxxx.cmake来完成
+无论使用Module还是使用Config模式，这一步都是要找到xxxx.cmake，后续的find的工作会由xxxx.cmake来完成，接下来通过解析FindIce.cmake来详细了解一下。
 ### FindIce.cmake 
 find_package之后可以使用Ice_INCLUDE_DIRS的原因是在FindIce.cmake中定义了这个变量。所以find_package的功能是由各个.cmake文件遵守共同的规范来实现的
 
@@ -85,6 +86,3 @@ find_package_handle_standard_args会检查REQUIRED_VARS后的变量（这些变�
 综上所述，Ice_INCLUDE_DIRS 就是在环境变量ICE_HOME的目录下寻找ice.h，然后将这个目录经过一些列的check赋值给Ice_INCLUDE_DIRS。
 
 需要cmake，ice，使用者三方共同遵守调用规范。cmake要提供FindIce.cmake，ice要符合FindIce.cmake文中所描述的方式构建目录结构，使用者需要正确安装ice（包括但不限于设置环境变量ICE_HOME）。看起来似乎很复杂，但是其实只要按照Ice的README安装，make; make install。让Ice搞定上面的条件。
-
-cmake的find_package在我看来就是c++脆弱的包管理模式。需要包的提供者做较大量的工作
-
