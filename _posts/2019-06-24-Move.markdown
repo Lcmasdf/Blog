@@ -6,8 +6,6 @@ catagories: C++
 excerpt: xxxxxxxxx
 ---
 
-# std::move非移动, std::forward亦无为
-
 [enter image description here](no-intervention.jpg)
 
 C++11加入了移动语意和完美转发这两个迷人的特性。前者使得使用移动来代替拷贝变得可能，后者使得函数模板可以接受任意类型的参数并且原封不动的传递它们。
