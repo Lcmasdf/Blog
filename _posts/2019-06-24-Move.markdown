@@ -6,7 +6,7 @@ catagories: C++
 excerpt: 解开移动语义最神秘的面纱
 ---
 
-[enter image description here](no-intervention.jpg)
+![concept](https://i.loli.net/2019/06/25/5d11da51a34a747280.jpg)
 
 C++11加入了移动语意和完美转发这两个迷人的特性。前者使得使用移动来代替拷贝变得可能，后者使得函数模板可以接受任意类型的参数并且原封不动的传递它们。
 
