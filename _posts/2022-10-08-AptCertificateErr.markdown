@@ -31,6 +31,8 @@ apt的配置方式我们暂且忽略，这个知识点太硬了。而且忽略�
 
 ### 非对称加密通信
 
+![asym-enc.jpg](https://s2.loli.net/2022/10/08/ImA6KVrxlayzOs9.jpg)
+
 撇开如何交换公钥的问题，非对称加密用于通信需要4个key参与： A.pri  A.pub  B.pri  B.pub。 如果只有一方的公私钥的话，只能保证数据不被其他人看到，并不能防止有中间人制造假数据。
 
 使用4个key即保证了数据的加密性又保证了数据的完整性
@@ -44,6 +46,8 @@ apt的配置方式我们暂且忽略，这个知识点太硬了。而且忽略�
 上面的流程遗留了一个问题：公钥如何传递。 如果公钥的传递过程被人破坏，那么通信就不是安全的了。 CA机制的出现就是一定程度上解决了这个问题。
 
 引入一个可信第三方，并将第三方的公钥预置到操作系统/浏览器中。通信双方的公钥交换通过第三方的秘钥进行。
+
+![ca-sign.jpg](https://s2.loli.net/2022/10/08/x9HlfEq1Du8ioPe.jpg)
 
 CA归根结底并没有带来算法上的进步，而是一种基于共识下的方法，通过另一种手段解决了public秘钥交换的问题。
 
@@ -76,6 +80,8 @@ More details here: http://curl.haxx.se/docs/sslcerts.html
 确认这个网站的证书有问题。
 
 使用ssllabs查看证书链（这里显示的是本地证书的验证结果？）
+
+![tsinghua-certi-paths.png](https://s2.loli.net/2022/10/08/GJqdI3VlYh6jogt.png)
 
 果然！ 在Path #2 上， DST Root CA X3 在2021-09-30号过期了。到这里debug就结束了，只要按照上面Let's Encrypt给出的解决方案，remove掉DST Root CA X3就可以了。
 
