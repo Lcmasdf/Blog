@@ -4,6 +4,7 @@ title: "apt certificate error"
 data: 2022-10-08 17:59:00
 catagories: 纹到底
 excerpt: 什么！证书过期了
+published: true
 ---
 
 今儿使用apt 出现下面错误：

@@ -4,6 +4,7 @@ title: "std::move非移动，std::forward亦无为"
 data: 2019-06-24 12:35:29
 catagories: C++
 excerpt: 解开移动语义最神秘的面纱
+published: true
 ---
 
 ![concept](https://i.loli.net/2019/06/25/5d11da51a34a747280.jpg)
