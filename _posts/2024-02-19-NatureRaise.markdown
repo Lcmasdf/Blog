@@ -4,7 +4,7 @@ title: "崔玉涛自然养育法读书笔记"
 data: 2024-02-19 10:59:00
 catagories: 快乐养孩子
 excerpt: "崔玉涛自然养育法读书笔记"
-published: false
+published: true
 ---
 
 ## 3-2 孩子不需要天天都快乐
