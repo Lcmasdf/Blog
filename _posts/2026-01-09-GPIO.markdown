@@ -1,0 +1,169 @@
+---
+layout: post
+title: "初识GPIO"
+data: 2026-01-09 17:44:00
+catagories: 机器人-嵌入式
+excerpt: "科普GPIO"
+published: false
+---
+
+最近在做机器人系统相关的开发，涉及一些嵌入式开发的工作，在有了大模型以后我这个小白也可以在稍微学习之后进行嵌入式的开发了。最近在AGX Orin上开发了GPIO相关的功能，梳理一下这个过程中学习到的知识。
+
+危险警告： 这篇文章是个纯嵌入式小白的学习记录，如果你是个很熟悉嵌入式的开发者，你可以直接忽略这篇文章。
+
+
+# 什么是GPIO
+
+> A general-purpose input/output (GPIO) is an uncommitted digital signal pin on an integrated circuit or electronic circuit (e.g. MCUs/MPUs) board that can be used as an input or output, or both, and is controllable by software.'
+>
+> GPIOs have no predefined purpose and are unused by default.[1][2] If used, the purpose and behavior of a GPIO is defined and implemented by the designer of higher assembly-level circuitry: the circuit board designer in the case of integrated circuit GPIOs, or system integrator in the case of board-level GPIOs.
+
+* uncommitted digital signal pin GPIO是个不固定的引脚
+* controllable by software
+
+说明了GPIO的特性，不固定+可以被软件控制
+
+> Integrated circuit (IC) GPIOs are implemented in a variety of ways. Some ICs provide GPIOs as a primary function whereas others include GPIOs as a convenient "accessory" to some other primary function. 
+
+从IC的角度看，GPIO大概有两种：
+
+* GPIO专用芯片，这个芯片的主要功能就是提供GPIO的能力，一般会通过某种方式与主控芯片通信。
+* GPIO作为一个复杂芯片的一部分被集成到芯片内部。
+
+这会影响我们的使用方式：
+* 专用芯片需要通过通信协议（I2C、SPI等）来控制
+* 集成GPIO可以直接通过寄存器或系统接口控制
+
+> In some ICs, particularly microcontrollers, a GPIO pin may be capable of other functions than GPIO. Often in such cases it is necessary to configure the pin to operate as a GPIO (vis-à-vis its other functions) in addition to configuring the GPIO's behavior.
+
+很多SOC上，引脚可能会具有多种功能，在使用之前首先要配置引脚功能。接下来会看到，在agx orin上使用GPIO，就需要先对pinmux进行配置。
+
+# AGX Orin GPIO
+
+agx orin 通过一个40pin的接口提供了GPIO的能力[40Pin](https://jetsonhacks.com/nvidia-jetson-agx-orin-gpio-header-pinout/)
+
+我通过[JETGPIO](https://github.com/Rubberazer/JETGPIO)来控制的GPIO针脚。
+
+```
++---------------------------------------------------------------+
+|                     Application Layer                         |
+|                   Your Robot System Code                      |
++-------------------------------+-------------------------------+
+                                |
++-------------------------------v-------------------------------+
+|                     User Space Library                        |
+|                          JETGPIO                              |
+|         +--------------+           +--------------+           |
+|         |    mmap()    |           |   ioctl()    |           |
+|         |  Map Memory  |           |  Config Pin  |           |
+|         +------+-------+           +------+-------+           |
++----------------+------------------------+---------------------+
+                 |                        |
+                 |                        |
+        +--------v------------------------v-----------+
+        |          Kernel Space (Linux)               |
+        |                                             |
+        |  +---------------------------------------+  |
+        |  |          /dev/mem Driver              |  |
+        |  |    Provides Physical Memory Access    |  |
+        |  +---------------------------------------+  |
+        |                    |                        |
+        +--------------------|------------------------+
+                             |
++----------------------------v---------------------------+
+|              Physical Memory Address Space             |
+|                                                        |
+|  +--------------------------------------------------+  |
+|  |  Pinmux Registers        GPIO Registers          |  |
+|  |  0x2430000 - 0x243FFFF   0x2200000 - 0x220FFFF   |  |
+|  |  (Pin Function Config)   (GPIO Control)          |  |
+|  +--------------------------------------------------+  |
+|                                                        |
++--------------------------------------------------------+
+                             |
++----------------------------v---------------------------+
+|                      Hardware Layer                    |
+|    +-----------------------------------------------+   |
+|    |         Tegra SoC GPIO Controller             |   |
+|    |  (GPIO_OUT, GPIO_IN, GPIO_DIR, GPIO_INT, etc.)|   |
+|    +----------------------+------------------------+   |
+|                           |                            |
+|    +----------------------v------------------------+   |
+|    |            40-Pin GPIO Header                 |   |
+|    |      Physical Pins to External Devices        |   |
+|    +-----------------------------------------------+   |
++--------------------------------------------------------+
+                             |
+                             v
+                  +--------------------+
+                  |  External Devices  |
+                  | Sensors/Actuators  |
+                  +--------------------+
+```
+
+# 源码分析
+
+接下来，我们将通过分析JETGPIO源码的方式来对应这个图上的各个组件。
+
+```bash
+[10ms][1][main][~/Project/JETGPIO]$ tree -L 1
+.
+├── docs
+├── EXAMPLES_C
+├── EXAMPLES_C++
+├── EXAMPLES_Zig
+├── get_chip_id.c
+├── hardware
+├── Jetclocks
+├── jetgpio.h
+├── libjetgpio.so
+├── LICENSE
+├── makefile
+├── nano.c
+├── orinagx.c
+├── orinagx.o
+├── orin.c
+├── README.md
+├── scripts
+└── xavier.c
+```
+除开example，核心的文件总共只有几个jetgpio.h以及各个SOC的具体实现，包括：nano.c，orinagx.c，orin.c还有xavier.c
+
+## jetgpio.h
+这个头文件主要包括三部分：
+* magic number
+* 数据结构体
+* 函数签名
+
+### magic number
+可以分这么几类：
+* base address
+```C
+#define base_PWM 0x7000a000
+
+```
+```C
+#define MISC 0x00100000			//Base Orin & Xavier
+#define MISCREG_HIDREV_0 0x4		//Offset Orin & Xavier
+
+```
+MISC 指的是APB_MISC寄存器的地址，用于读取硬件版本信息
+MISCREG_HIDREV_0 指的是MISC寄存器中HIDREV变量的偏移量，用于读取芯片型号
+
+
+```C
+#define base_CNF_AON 0x0c2f1000         // Base address Nano AON: 3,5,27,28 AGX: 3,5,16,27,28,29,31,32,33,37
+#define base_CNF_NAON 0x02210000        // Base address Nano Non AON: 7,8,10,11,29,31,36,15,12,32,33,35,38,40,13,16,18,19,21,22,23,24,26,37 AGX: 7,8,10,11,36,15,12,35,38,40,13,18,19,21,22,23,24,26
+#define Pinmux_AON 0x0c302000           // Pinmux + config GPIO PADCTL_A14 pad Nano & AGX: 3,5,27,28
+#define Pinmux_AONHV 0x0c303000         // Pinmux + config GPIO PADCTL_A15 pad AGX: 29,31,33,37 
+#define Pinmux_G7 0x02448000            // Pinmux + config GPIO PADCTL_A24 pad Nano: 7
+#define Pinmux_G3 0x02430000            // Pinmux + config GPIO PADCTL_A0 pad Nano: 8,10,11,29,31,36 AGX: 8,10,11,13,22,26
+#define Pinmux_EDP 0x02440000           // Pinmux + config GPIO PADCTL_A16 pad Nano & AGX: 15
+#define Pinmux_G4 0x02434000            // Pinmux + config GPIO PADCTL_A4 pad Nano: 12,32,33,35,38,40 AGX: 18
+#define Pinmux_G2 0x0243d000            // Pinmux + config GPIO PADCTL_A13 pad Nano: 13,16,18,19,21,22,23,24,26,37 AGX: 19,21,23,24,26
+```
+这些基本都是与GPIO功能相关的基地址了，让我们来详细的解释一下这些变量含义。
+
+* ANO: always on，表明这个针脚在进入低功耗模式下仍然有电
+* NANO： None ANO， 显而易见，在低功耗模式下没有电
+* CNF: GPIO Configuration Register（GPIO 配置寄存器）的缩写，用于控制芯片上 GPIO 引脚的功能和行为。
