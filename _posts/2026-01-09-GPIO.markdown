@@ -1,46 +1,49 @@
 ---
 layout: post
 title: "初识GPIO"
-data: 2026-01-09 17:44:00
-catagories: 机器人-嵌入式
-excerpt: "科普GPIO"
+date: 2026-01-09 17:44:00
+categories: 机器人-嵌入式
+excerpt: "GPIO 基础知识介绍"
 published: false
 ---
 
-最近在做机器人系统相关的开发，涉及一些嵌入式开发的工作，在有了大模型以后我这个小白也可以在稍微学习之后进行嵌入式的开发了。最近在AGX Orin上开发了GPIO相关的功能，梳理一下这个过程中学习到的知识。
+最近，我在进行机器人系统相关的开发工作，涉及嵌入式开发。随着大模型的出现，即使像我这样的小白也能通过学习快速上手嵌入式开发。最近，我在AGX Orin上实现了GPIO相关的功能，并借此梳理和分享学习过程中的知识点。
 
-危险警告： 这篇文章是个纯嵌入式小白的学习记录，如果你是个很熟悉嵌入式的开发者，你可以直接忽略这篇文章。
-
+PS： 这篇文章是纯嵌入式小白的学习记录，旨在记录个人成长过程。如果你已是嵌入式开发的老手，可以直接跳过。
 
 # 什么是GPIO
+
+在开始AGX Orin的GPIO实践之前，我们需要先弄清楚什么是GPIO。查看Wiki的定义是一个很好的途径，可以全面了解GPIO的概念和特性。
 
 > A general-purpose input/output (GPIO) is an uncommitted digital signal pin on an integrated circuit or electronic circuit (e.g. MCUs/MPUs) board that can be used as an input or output, or both, and is controllable by software.'
 >
 > GPIOs have no predefined purpose and are unused by default.[1][2] If used, the purpose and behavior of a GPIO is defined and implemented by the designer of higher assembly-level circuitry: the circuit board designer in the case of integrated circuit GPIOs, or system integrator in the case of board-level GPIOs.
 
-* uncommitted digital signal pin GPIO是个不固定的引脚
-* controllable by software
+这段定义突出了 GPIO 的两个关键特性：
 
-说明了GPIO的特性，不固定+可以被软件控制
+- **uncommitted digital signal pin**：GPIO 引脚没有预定义用途，可以灵活配置为输入或输出。
+- **controllable by software**：通过软件编程来操作这些引脚，实现自动化控制。
 
-> Integrated circuit (IC) GPIOs are implemented in a variety of ways. Some ICs provide GPIOs as a primary function whereas others include GPIOs as a convenient "accessory" to some other primary function. 
+> Integrated circuit (IC) GPIOs are implemented in a variety of ways. Some ICs provide GPIOs as a primary function whereas others include GPIOs as a convenient "accessory" to some other primary function.
 
-从IC的角度看，GPIO大概有两种：
+从IC的角度来看，GPIO 大致可以分为两种实现方式：
 
-* GPIO专用芯片，这个芯片的主要功能就是提供GPIO的能力，一般会通过某种方式与主控芯片通信。
-* GPIO作为一个复杂芯片的一部分被集成到芯片内部。
+- **GPIO 专用芯片**：这种芯片的主要功能是提供 GPIO 能力，通常通过通信协议（如 I2C、SPI 等）与主控芯片交互。
+- **集成 GPIO**：GPIO 作为复杂芯片的一部分被内置其中，可以直接通过寄存器或系统接口进行控制。
 
-这会影响我们的使用方式：
-* 专用芯片需要通过通信协议（I2C、SPI等）来控制
-* 集成GPIO可以直接通过寄存器或系统接口控制
+这两种实现方式会影响我们的使用方法：专用芯片依赖通信协议，而集成 GPIO 则更直接高效。
 
 > In some ICs, particularly microcontrollers, a GPIO pin may be capable of other functions than GPIO. Often in such cases it is necessary to configure the pin to operate as a GPIO (vis-à-vis its other functions) in addition to configuring the GPIO's behavior.
 
-很多SOC上，引脚可能会具有多种功能，在使用之前首先要配置引脚功能。接下来会看到，在agx orin上使用GPIO，就需要先对pinmux进行配置。
+在许多集成电路（IC）中，尤其是微控制器（microcontrollers），一个GPIO引脚可能不仅仅用于GPIO功能，还可以被配置为其他用途，如I2C、SPI、UART、PWM等。这就是所谓的针脚复用（pin multiplexing），它允许单个物理引脚承担多种角色，以节省芯片空间和提高灵活性。
+
+为了使用GPIO功能，我们需要通过引脚复用控制器（pinmux）来配置引脚，确保它被设置为GPIO模式，而不是其他功能。例如，在AGX Orin这样的SOC上，每个引脚都有一个对应的pinmux寄存器，用于选择引脚的功能。如果不正确配置，引脚可能会被分配给其他外围设备，导致GPIO操作失败。
+
+这种配置通常涉及设置特定的寄存器位，以选择引脚的功能和电气特性（如上拉/下拉电阻、驱动强度等）。接下来会看到，在AGX Orin上使用GPIO，就需要先对pinmux进行配置。
 
 # AGX Orin GPIO
 
-agx orin 通过一个40pin的接口提供了GPIO的能力[40Pin](https://jetsonhacks.com/nvidia-jetson-agx-orin-gpio-header-pinout/)
+弄清楚了GPIO的定义之后，我们就具体研究一个SOC上GPIO功能的用法。我在工作中使用的是AGX Orin，它通过一个40pin的接口提供了GPIO的能力[40Pin](https://jetsonhacks.com/nvidia-jetson-agx-orin-gpio-header-pinout/)。
 
 我通过[JETGPIO](https://github.com/Rubberazer/JETGPIO)来控制的GPIO针脚。
 
@@ -103,7 +106,11 @@ agx orin 通过一个40pin的接口提供了GPIO的能力[40Pin](https://jetsonh
 
 # 源码分析
 
-接下来，我们将通过分析JETGPIO源码的方式来对应这个图上的各个组件。
+在AGX Orin上实现GPIO的功能，我使用的是JETGPIO的库。下面我们来看看这个库具体是如何实现的。
+
+接下来，我们将通过分析JETGPIO源码的方式来对应这个图上的各个组件。这个库的核心是提供用户空间的接口来控制硬件GPIO，而不依赖于Linux内核的GPIO子系统。它通过直接映射物理内存地址来访问硬件寄存器，实现高效的GPIO操作。
+
+## 文件结构
 
 ```bash
 [10ms][1][main][~/Project/JETGPIO]$ tree -L 1
@@ -127,43 +134,119 @@ agx orin 通过一个40pin的接口提供了GPIO的能力[40Pin](https://jetsonh
 ├── scripts
 └── xavier.c
 ```
-除开example，核心的文件总共只有几个jetgpio.h以及各个SOC的具体实现，包括：nano.c，orinagx.c，orin.c还有xavier.c
 
-## jetgpio.h
-这个头文件主要包括三部分：
-* magic number
-* 数据结构体
-* 函数签名
+除开示例和文档，核心文件包括头文件 `jetgpio.h` 和各个SOC的具体实现文件（如 `nano.c`、`orinagx.c` 等）。
 
-### magic number
-可以分这么几类：
-* base address
+## jetgpio.h 分析
+
+这个头文件是库的核心，包含了所有必要的定义和接口。主要分为三部分：magic number、数据结构体和函数签名。
+
+### Magic Number
+
+这些常量定义了硬件寄存器的基地址和偏移量，可以分为几类：
+
+- **基础地址**：如 PWM 控制器的基地址。
+  ```C
+  #define base_PWM 0x7000a000
+  ```
+
+- **硬件信息**：用于读取芯片版本。
+  ```C
+  #define MISC 0x00100000			//Base Orin & Xavier
+  #define MISCREG_HIDREV_0 0x4		//Offset Orin & Xavier
+  ```
+  - MISC：APB_MISC 寄存器的地址，用于读取硬件版本信息。
+  - MISCREG_HIDREV_0：MISC 寄存器中 HIDREV 变量的偏移量，用于读取芯片型号。
+
+- **GPIO 相关地址**：包括配置和 pinmux 地址。
+  ```C
+  #define base_CNF_AON 0x0c2f1000         // Base address Nano AON: 3,5,27,28 AGX: 3,5,16,27,28,29,31,32,33,37
+  #define base_CNF_NAON 0x02210000        // Base address Nano Non AON: 7,8,10,11,29,31,36,15,12,32,33,35,38,40,13,16,18,19,21,22,23,24,26,37 AGX: 7,8,10,11,36,15,12,35,38,40,13,18,19,21,22,23,24,26
+  #define Pinmux_AON 0x0c302000           // Pinmux + config GPIO PADCTL_A14 pad Nano & AGX: 3,5,27,28
+  #define Pinmux_AONHV 0x0c303000         // Pinmux + config GPIO PADCTL_A15 pad AGX: 29,31,33,37 
+  #define Pinmux_G7 0x02448000            // Pinmux + config GPIO PADCTL_A24 pad Nano: 7
+  #define Pinmux_G3 0x02430000            // Pinmux + config GPIO PADCTL_A0 pad Nano: 8,10,11,29,31,36 AGX: 8,10,11,13,22,26
+  #define Pinmux_EDP 0x02440000           // Pinmux + config GPIO PADCTL_A16 pad Nano & AGX: 15
+  #define Pinmux_G4 0x02434000            // Pinmux + config GPIO PADCTL_A4 pad Nano: 12,32,33,35,38,40 AGX: 18
+  #define Pinmux_G2 0x0243d000            // Pinmux + config GPIO PADCTL_A13 pad Nano: 13,16,18,19,21,22,23,24,26,37 AGX: 19,21,23,24,26
+  ```
+
+这些地址用于控制 GPIO 的配置和 pinmux。关键术语解释：
+- **AON**：Always On，表示引脚在低功耗模式下仍供电。
+- **NAON**：Non AON，表示在低功耗模式下无电。
+- **CNF**：GPIO Configuration Register，用于控制引脚功能和行为。
+- **G3/G7/EDP/G4/G2**：不同的功能分组，表示引脚所属的控制器组。
+
+### 数据结构
+
+主要定义了寄存器的数据结构，例如 GPIO_CNFO（GPIO Configuration Register）。
 ```C
-#define base_PWM 0x7000a000
-
+typedef struct {
+  uint32_t CNF[1];
+  uint32_t DEB[1];
+  uint32_t IN[1];
+  uint32_t OUT[1];
+  uint32_t OUT_VLE[1];
+  uint32_t INT_CLR[1];
+} GPIO_CNFO;
 ```
+- CNF：配置寄存器。
+- DEB：去抖动寄存器。
+- IN：输入寄存器。
+- OUT：输出寄存器。
+- OUT_VLE：输出值寄存器。
+- INT_CLR：中断清除寄存器。
+
+### 函数签名
+
+定义了库的接口函数，类似 Arduino 风格。
 ```C
-#define MISC 0x00100000			//Base Orin & Xavier
-#define MISCREG_HIDREV_0 0x4		//Offset Orin & Xavier
+/** @brief Initialises the library. gpioInitialise must be called before using the other library functions, it stores the status of all the relevant registers before using/modifying them. **/
+int gpioInitialise(void);
 
+/** @brief Sets the GPIO mode, typically input or output. **/
+int gpioSetMode(unsigned gpio, unsigned mode);
+
+/** @brief Reads the GPIO level, on or off, 0 or 1. Arduino style: digitalRead. Whether a pin has been set as input or output it can be read with this function. **/
+int gpioRead(unsigned gpio);
+
+/** @brief Sets the GPIO level, on or off. Arduino style: digitalWrite **/
+int gpioWrite(unsigned gpio, unsigned level);
 ```
-MISC 指的是APB_MISC寄存器的地址，用于读取硬件版本信息
-MISCREG_HIDREV_0 指的是MISC寄存器中HIDREV变量的偏移量，用于读取芯片型号
 
+## 核心函数实现
 
-```C
-#define base_CNF_AON 0x0c2f1000         // Base address Nano AON: 3,5,27,28 AGX: 3,5,16,27,28,29,31,32,33,37
-#define base_CNF_NAON 0x02210000        // Base address Nano Non AON: 7,8,10,11,29,31,36,15,12,32,33,35,38,40,13,16,18,19,21,22,23,24,26,37 AGX: 7,8,10,11,36,15,12,35,38,40,13,18,19,21,22,23,24,26
-#define Pinmux_AON 0x0c302000           // Pinmux + config GPIO PADCTL_A14 pad Nano & AGX: 3,5,27,28
-#define Pinmux_AONHV 0x0c303000         // Pinmux + config GPIO PADCTL_A15 pad AGX: 29,31,33,37 
-#define Pinmux_G7 0x02448000            // Pinmux + config GPIO PADCTL_A24 pad Nano: 7
-#define Pinmux_G3 0x02430000            // Pinmux + config GPIO PADCTL_A0 pad Nano: 8,10,11,29,31,36 AGX: 8,10,11,13,22,26
-#define Pinmux_EDP 0x02440000           // Pinmux + config GPIO PADCTL_A16 pad Nano & AGX: 15
-#define Pinmux_G4 0x02434000            // Pinmux + config GPIO PADCTL_A4 pad Nano: 12,32,33,35,38,40 AGX: 18
-#define Pinmux_G2 0x0243d000            // Pinmux + config GPIO PADCTL_A13 pad Nano: 13,16,18,19,21,22,23,24,26,37 AGX: 19,21,23,24,26
-```
-这些基本都是与GPIO功能相关的基地址了，让我们来详细的解释一下这些变量含义。
+话不多说，让我们来看看这些功能是如何实现的。以 `gpioInitialise` 为例：
 
-* ANO: always on，表明这个针脚在进入低功耗模式下仍然有电
-* NANO： None ANO， 显而易见，在低功耗模式下没有电
-* CNF: GPIO Configuration Register（GPIO 配置寄存器）的缩写，用于控制芯片上 GPIO 引脚的功能和行为。
+1. **mmap 映射**：打开 `/dev/mem`，将 GPIO 控制相关的寄存器映射到用户空间。
+   ```C
+   // Mapping GPIO_CNF_AON
+   baseCNF_AON = mmap(0, pagesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd_GPIO, base_CNF_AON);
+   if (baseCNF_AON == MAP_FAILED) {
+    return -2;
+   }
+   ```
+
+2. **变量初始化**：设置指针并备份初始状态。
+   ```C
+   // Pointer to CNFO_3
+   pin3 = (GPIO_CNFO volatile *)((char *)baseCNF_AON + CNFO_3);
+   pin_CNF.pin3 = pin3->CNF[0];
+   pin_DEB.pin3 = pin3->DEB[0];
+   pin_IN.pin3 = pin3->IN[0];
+   pin_OUT.pin3 = pin3->OUT[0];
+   pin_OUT_VLE.pin3 = pin3->OUT_VLE[0];
+   ```
+
+其他函数如 `gpioSetMode`、`gpioRead` 和 `gpioWrite` 则负责实际的读写寄存器操作，例如配置 pinmux 和 GPIO 设置。
+   ```C
+   *pinmux16 = PINMUXO_OUT;
+   *pincfg16 = CFGO_OUT;
+   pin16->CNF[0] = CNFO_OUT;
+   pin16->OUT[0] &= ~(0x00000001);
+   pin_tracker |= (1 << 9);
+   ```
+
+## 总结
+
+弄清楚了上述知识之后，GPIO的控制也不是很难。其实，只要搞懂了SOC的架构和库的实现原理，控制GPIO就像写个简单程序一样轻松。通过这次学习，我从GPIO的基础概念学起，到AGX Orin的实际操作，再到JETGPIO源码的剖析，整个过程让我觉得嵌入式开发也没那么神秘。
