@@ -4,7 +4,7 @@ title: "初识GPIO"
 date: 2026-01-09 17:44:00
 categories: 机器人-嵌入式
 excerpt: "GPIO 基础知识介绍"
-published: false
+published: true
 ---
 
 最近，我在进行机器人系统相关的开发工作，涉及嵌入式开发。随着大模型的出现，即使像我这样的小白也能通过学习快速上手嵌入式开发。最近，我在AGX Orin上实现了GPIO相关的功能，并借此梳理和分享学习过程中的知识点。
